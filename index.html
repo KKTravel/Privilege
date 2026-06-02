@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>6月東主有喜優惠</title>
+
+  <style>
+    :root{
+      --bg: transparent;
+      --pad: 14px;
+      /* 初始比例，JS 會自動依 P1.jpg 更新 */
+      --ratio: 0.707; 
+
+      --r: 14px;
+      --shadow: 0 18px 55px rgba(0,0,0,.18);
+    }
+
+    *{ box-sizing:border-box; }
+    html, body{
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
+    }
+
+    /* 載入遮罩 */
+    #loading{
+      position: fixed;
+      inset: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: #fff;
+      z-index: 99999;
+      color:#333;
+    }
+
+    #app{
+      height:100svh;
+      width:100vw;
+      position:relative;
+    }
+
+    /* 工具列 */
+    #toolbar{
+      position: fixed;
+      top: calc(12px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      left: calc(12px + env(safe-area-inset-left));
+      z-index: 9999;
+      display:flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap:8px;
+      pointer-events: none;
+    }
+    #toolbar button{
+      pointer-events: auto;
+      appearance:none;
+      border:1px solid rgba(0,0,0,.15);
+      background: rgba(255,255,255,.92);
+      color:#111;
+      padding:8px 12px;
+      border-radius:10px;
+      font-size:14px;
+      cursor:pointer;
+      line-height:1;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: background 0.2s;
+    }
+    #toolbar button:hover { background: #f0f0f0; }
+    #btnExit{ display:none; }
+    
+    /* 特別標示優惠詳情按鈕 */
+    #toolbar button.special-btn {
+      background: #ffebee;
+      color: #d32f2f;
+      border-color: #ffcdd2;
+      font-weight: bold;
+    }
+    #toolbar button.special-btn:hover { background: #ffcdd2; }
+
+    /* 頁碼 */
+    #pager{
+      position: fixed;
+      left: calc(12px + env(safe-area-inset-left));
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      z-index: 9999;
+      font-size: 13px;
+      color: rgba(0,0,0,.65);
+      background: rgba(255,255,255,.88);
+      border: 1px solid rgba(0,0,0,.10);
+      padding: 6px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    #stage{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding: var(--pad);
+      touch-action: none;
+    }
+
+    /* ================= 網格視圖 (首頁) ================= */
+    #home-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 900px;
+      height: 100%;
+      padding-top: 90px; /* 留出頂部工具列空間 */
+      padding-bottom: 20px;
+      z-index: 10;
+    }
+    
+    .home-title {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 16px;
+      font-weight: 500;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      flex-shrink: 0;
+    }
+
+    #grid-view {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 16px;
+      width: 100%;
+      height: calc(100% - 60px); /* 給予明確高度，防止 1fr 塌陷為 0 */
+    }
+    
+    /* ================= 卡片視圖區塊 (包含內頁提示文字) ================= */
+    #deck-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      padding-top: 90px; 
+      padding-bottom: 20px;
+      z-index: 10;
+    }
+
+    .deck-tips {
+      font-size: 14px;
+      color: #444;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      max-width: 90%;
+      flex-shrink: 0;
+    }
+    
+    #deck{
+      flex-grow: 1;
+      height: calc(100% - 80px);
+      width: min(
+        calc((100svh - 190px) * var(--ratio)),
+        calc(100vw - (var(--pad) * 2))
+      );
+      position: relative;
+    }
+
+    /* 行動裝置最佳化 */
+    @media (max-width: 600px) {
+      #home-view {
+        padding-top: 140px; /* 手機版工具列換行，增加上方留白 */
+      }
+      #deck-container {
+        padding-top: 140px;
+      }
+      .home-title {
+        font-size: 14px;
+        margin-bottom: 12px;
+      }
+      .deck-tips {
+        font-size: 12px;
+        margin-bottom: 12px;
+        padding: 6px 12px;
+      }
+      #grid-view {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        height: calc(100% - 50px);
+      }
+      #deck {
+        width: min(
+          calc((100svh - 250px) * var(--ratio)),
+          calc(100vw - (var(--pad) * 2))
+        );
+      }
+    }
+
+    .grid-item {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .grid-item:hover { 
+      transform: translateY(-4px) scale(1.02); 
+      box-shadow: 0 22px 60px rgba(0,0,0,.25);
+    }
+    .grid-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    .card{
+      position:absolute;
+      inset:0;
+      border-radius: var(--r);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+      background: #fff;
+      will-change: transform, opacity;
+    }
+    .card img{
+      width:100%;
+      height:100%;
+      object-fit: contain;
+      pointer-events:none;
+    }
+
+    .card.under{ transform: scale(1); opacity: 1; }
+    .card.top{ cursor: grab; z-index: 3; }
+    .card.top:active{ cursor: grabbing; }
+
+    .hidden { display: none !important; }
+
+    #app.is-fs{ background: #0b0f17; }
+  </style>
+</head>
+
+<body>
+  <div id="loading">載入中...</div>
+
+  <div id="app">
+    <!-- 工具列 -->
+    <div id="toolbar">
+      <button id="btnHome" type="button">首頁</button>
+      <button class="nav-btn" data-target="1" type="button">GWB13</button>
+      <button class="nav-btn" data-target="5" type="button">SE08</button>
+      <button class="nav-btn" data-target="7" type="button">UF06</button>
+      <button class="nav-btn" data-target="9" type="button">UGA04</button>
+      <button class="nav-btn" data-target="11" type="button">UJA06</button>
+      <button class="nav-btn" data-target="13" type="button">UKB06</button>
+      <button class="nav-btn special-btn" data-target="15" type="button">優惠詳情</button>
+      
+      <button id="btnFull" type="button">全螢幕</button>
+      <button id="btnExit" type="button">退出</button>
+    </div>
+
+    <!-- 頁碼 -->
+    <div id="pager" class="hidden">1 / 15</div>
+
+    <!-- 舞台區 -->
+    <div id="stage">
+      <!-- 網格視圖 (首頁) -->
+      <div id="home-view">
+        <div class="home-title">👉 點擊行程縮圖，即可查看詳細行程</div>
+        <div id="grid-view"></div>
+      </div>
+      
+      <!-- 卡片滑動視圖與內頁提示 (隱藏) -->
+      <div id="deck-container" class="hidden">
+        <div class="deck-tips">
+          💡 提示：左右翻頁；如字太小，請點右上角「全螢幕」放大觀看。<br>
+          📢 小提醒：如果翻頁後畫面沒變，請等一下，內容馬上就會出來。
+        </div>
+        <div id="deck"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== 配置區 =====
+    const totalPages = 15; 
+    const thumbPages = [1, 5, 7, 9, 11, 13]; 
+    
+    // 圖片副檔名為 .jpg
+    const pages = Array.from({length: totalPages + 1}, (_, i) => `./P${i}.jpg`);
+    // =================
+
+    const homeView = document.getElementById('home-view');
+    const gridView = document.getElementById('grid-view');
+    const deckContainer = document.getElementById('deck-container');
+    const deck = document.getElementById('deck');
+    const pager = document.getElementById('pager');
+    const loading = document.getElementById('loading');
+    const app = document.getElementById('app');
+
+    let idx = 1; 
+    let animating = false;
+    let dragging = false;
+
+    // 初始化網格視圖
+    thumbPages.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'grid-item';
+      item.onclick = () => showDeck(p);
+      
+      const img = document.createElement('img');
+      img.src = pages[p];
+      
+      item.appendChild(img);
+      gridView.appendChild(item);
+    });
+
+    // 建立卡片結構
+    const elUnder = makeCard('under');
+    const elTop = makeCard('top');
+    deck.appendChild(elUnder);
+    deck.appendChild(elTop);
+
+    function makeCard(cls){
+      const div = document.createElement('div');
+      div.className = `card ${cls}`;
+      const img = document.createElement('img');
+      div.appendChild(img);
+      return div;
+    }
+
+    function renderCards(){
+      const currentImg = elTop.querySelector('img');
+      const nextImg = elUnder.querySelector('img');
+      
+      currentImg.src = pages[idx];
+      nextImg.src = pages[Math.min(idx + 1, totalPages)];
+
+      elTop.style.transition = 'none';
+      elTop.style.transform = 'translate(0,0) rotate(0)';
+      elTop.style.opacity = '1';
+      
+      pager.textContent = `${idx} / ${totalPages}`;
+    }
+
+    function showGrid() {
+      deckContainer.classList.add('hidden');
+      pager.classList.add('hidden');
+      homeView.classList.remove('hidden');
+    }
+
+    function showDeck(pageIndex) {
+      idx = pageIndex;
+      homeView.classList.add('hidden');
+      deckContainer.classList.remove('hidden');
+      pager.classList.remove('hidden');
+      renderCards();
+    }
+
+    // 自動偵測第一張圖比例 (P1.jpg)
+    const firstImg = new Image();
+    firstImg.onload = () => {
+      document.documentElement.style.setProperty('--ratio', (firstImg.naturalWidth / firstImg.naturalHeight));
+      showGrid(); 
+      loading.style.display = 'none';
+    };
+    firstImg.onerror = () => {
+      showGrid();
+      loading.style.display = 'none';
+    };
+    firstImg.src = pages[1]; 
+
+    function goNext() {
+      if (idx >= totalPages || animating) return;
+      animating = true;
+      elTop.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+      elTop.style.transform = `translate(-120%, -5%) rotate(-10deg)`;
+      elTop.style.opacity = '0';
+      setTimeout(() => {
+        idx++;
+        renderCards();
+        animating = false;
+      }, 400);
+    }
+
+    function goPrev() {
+      if (idx <= 1 || animating) return;
+      animating = true;
+      idx--;
+      renderCards();
+      elTop.style.transform = `translate(-120%, -5%) rotate(-10deg)`;
+      elTop.style.opacity = '0';
+      setTimeout(() => {
+        elTop.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+        elTop.style.transform = 'translate(0,0) rotate(0)';
+        elTop.style.opacity = '1';
+        animating = false;
+      }, 10);
+    }
+
+    let startX = 0;
+    elTop.addEventListener('pointerdown', e => { startX = e.clientX; dragging = true; });
+    elTop.addEventListener('pointerup', e => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 50) {
+        if (dx < 0) goNext(); else goPrev();
+      } else {
+        const rect = deck.getBoundingClientRect();
+        if (e.clientX - rect.left > rect.width / 2) goNext(); else goPrev();
+      }
+      dragging = false;
+    });
+
+    document.getElementById('btnHome').onclick = showGrid;
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.onclick = () => {
+        const targetPage = parseInt(btn.dataset.target, 10);
+        showDeck(targetPage);
+      };
+    });
+
+    const btnFull = document.getElementById('btnFull');
+    const btnExit = document.getElementById('btnExit');
+    btnFull.onclick = () => app.requestFullscreen();
+    btnExit.onclick = () => document.exitFullscreen();
+    document.addEventListener('fullscreenchange', () => {
+      const isFull = !!document.fullscreenElement;
+      app.classList.toggle('is-fs', isFull);
+      btnFull.style.display = isFull ? 'none' : 'block';
+      btnExit.style.display = isFull ? 'block' : 'none';
+    });
+  </script>
+</body>
+</html>
