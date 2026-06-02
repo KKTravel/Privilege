@@ -20,7 +20,7 @@
     html, body{
       height:100%;
       margin:0;
-      overflow:hidden;
+      overflow:hidden; /* 保持全域不滾動，由內層容器個別控制 */
       background: var(--bg);
       font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
     }
@@ -101,57 +101,85 @@
     #stage{
       position:absolute;
       inset:0;
-      display:grid;
-      place-items:center;
-      padding: var(--pad);
-      touch-action: none;
+      z-index: 1;
     }
 
-    /* ================= 網格視圖 (首頁) ================= */
+    /* ================= 網格視圖 (首頁：允許上下划動，圖片左右最大化) ================= */
     #home-view {
+      position: absolute;
+      inset: 0;
+      overflow-x: hidden;
+      overflow-y: auto; /* 允許上下滾動 */
+      -webkit-overflow-scrolling: touch;
       display: flex;
       flex-direction: column;
       align-items: center;
       width: 100%;
-      max-width: 900px;
-      height: 100%;
-      padding-top: 90px; /* 留出頂部工具列空間 */
-      padding-bottom: 20px;
-      z-index: 10;
+      padding: 20px var(--pad);
+      padding-top: calc(90px + env(safe-area-inset-top)); /* 留出工具列空間 */
+      touch-action: pan-y; /* 允許瀏覽器原生上下滑動 */
     }
     
     .home-title {
       font-size: 16px;
       color: #333;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
       font-weight: 500;
       text-align: center;
       background: rgba(255, 255, 255, 0.9);
-      padding: 8px 16px;
+      padding: 10px 20px;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      width: 100%;
+      max-width: 900px;
       flex-shrink: 0;
     }
 
     #grid-view {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      gap: 16px;
+      grid-template-columns: repeat(3, 1fr); /* 電腦版 3 欄 */
+      gap: 20px;
       width: 100%;
-      height: calc(100% - 60px); /* 給予明確高度，防止 1fr 塌陷為 0 */
+      max-width: 900px;
+      height: auto; /* 讓高度隨內容自然延伸，不再壓縮圖片 */
+    }
+
+    .grid-item {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+      aspect-ratio: var(--ratio); /* 強制維持傳單比例，使左右能最大化擴展 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .grid-item:hover { 
+      transform: translateY(-4px) scale(1.01); 
+      box-shadow: 0 22px 60px rgba(0,0,0,.25);
+    }
+    .grid-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 滿幅呈現 */
+      pointer-events: none;
     }
     
-    /* ================= 卡片視圖區塊 (包含內頁提示文字) ================= */
+    /* ================= 卡片視圖區塊 (看詳情內頁：不滾動，專注滑動卡片) ================= */
     #deck-container {
+      position: absolute;
+      inset: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       width: 100%;
       height: 100%;
-      padding-top: 90px; 
-      padding-bottom: 20px;
-      z-index: 10;
+      padding: 20px var(--pad);
+      padding-top: calc(90px + env(safe-area-inset-top)); 
+      overflow: hidden;
     }
 
     .deck-tips {
@@ -164,31 +192,37 @@
       padding: 8px 16px;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      max-width: 90%;
+      width: 100%;
+      max-width: 650px;
       flex-shrink: 0;
     }
     
     #deck{
       flex-grow: 1;
-      height: calc(100% - 80px);
       width: min(
-        calc((100svh - 190px) * var(--ratio)),
+        calc((100svh - 200px - env(safe-area-inset-top)) * var(--ratio)),
         calc(100vw - (var(--pad) * 2))
       );
       position: relative;
+      touch-action: none; /* 內頁滑動卡片時禁用瀏覽器預設手勢 */
     }
 
-    /* 行動裝置最佳化 */
+    /* ================= 行動裝置 (手機版) 最佳化 ================= */
     @media (max-width: 600px) {
       #home-view {
-        padding-top: 140px; /* 手機版工具列換行，增加上方留白 */
+        padding-top: calc(140px + env(safe-area-inset-top)); /* 手機版按鈕折行，增加上方留白 */
+        padding-left: 10px;
+        padding-right: 10px;
       }
       #deck-container {
-        padding-top: 140px;
+        padding-top: calc(140px + env(safe-area-inset-top));
+        padding-left: 10px;
+        padding-right: 10px;
       }
       .home-title {
         font-size: 14px;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
+        padding: 8px 12px;
       }
       .deck-tips {
         font-size: 12px;
@@ -196,38 +230,15 @@
         padding: 6px 12px;
       }
       #grid-view {
-        grid-template-columns: repeat(2, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-        height: calc(100% - 50px);
+        grid-template-columns: repeat(2, 1fr); /* 手機版 2 欄排列 */
+        gap: 12px; /* 縮小間距，把圖片左右最大化 */
       }
       #deck {
         width: min(
-          calc((100svh - 250px) * var(--ratio)),
-          calc(100vw - (var(--pad) * 2))
+          calc((100svh - 260px - env(safe-area-inset-top)) * var(--ratio)),
+          calc(100vw - 20px)
         );
       }
-    }
-
-    .grid-item {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      cursor: pointer;
-      overflow: hidden;
-      transition: transform 0.2s, box-shadow 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .grid-item:hover { 
-      transform: translateY(-4px) scale(1.02); 
-      box-shadow: 0 22px 60px rgba(0,0,0,.25);
-    }
-    .grid-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      pointer-events: none;
     }
 
     .card{
@@ -376,7 +387,14 @@
     // 自動偵測第一張圖比例 (P1.jpg)
     const firstImg = new Image();
     firstImg.onload = () => {
-      document.documentElement.style.setProperty('--ratio', (firstImg.naturalWidth / firstImg.naturalHeight));
+      const imgRatio = firstImg.naturalWidth / firstImg.naturalHeight;
+      document.documentElement.style.setProperty('--ratio', imgRatio);
+      
+      // 動態更新所有網格項目的比例
+      document.querySelectorAll('.grid-item').forEach(el => {
+        el.style.aspectRatio = imgRatio;
+      });
+      
       showGrid(); 
       loading.style.display = 'none';
     };
