@@ -381,12 +381,16 @@
       homeView.classList.remove('hidden');
     }
 
-    function showDeck(pageIndex) {
+    function showDeck(pageIndex, keepScroll = false) {
       idx = pageIndex;
       homeView.classList.add('hidden');
       deckContainer.classList.remove('hidden');
       pager.classList.remove('hidden');
-      deckContainer.scrollTop = 0; // 每次切換行程，自動滾動回最頂端
+      
+      // 如果不是連續翻頁（例如從首頁點進來），才需要滾動回最頂端
+      if (!keepScroll) {
+        deckContainer.scrollTop = 0;
+      }
       renderCards();
     }
 
@@ -421,7 +425,7 @@
       setTimeout(() => {
         idx++;
         renderCards();
-        deckContainer.scrollTop = 0; // 翻頁後滾動回頂端
+        // 移除 deckContainer.scrollTop = 0; 保留滑動高度不變
         animating = false;
       }, 400);
     }
@@ -431,7 +435,7 @@
       animating = true;
       idx--;
       renderCards();
-      deckContainer.scrollTop = 0; // 翻頁後滾動回頂端
+      // 移除 deckContainer.scrollTop = 0; 保留滑動高度不變
       elTop.style.transform = `translate(-120%, -5%) rotate(-10deg)`;
       elTop.style.opacity = '0';
       setTimeout(() => {
@@ -482,7 +486,8 @@
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.onclick = () => {
         const targetPage = parseInt(btn.dataset.target, 10);
-        showDeck(targetPage);
+        // 使用上方按鍵跳轉行程時，也保留目前的滑動高度不變
+        showDeck(targetPage, true);
       };
     });
 
