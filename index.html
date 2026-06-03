@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <!-- 開放原生的 user-scalable 與 maximum-scale，允許雙指自由放大縮小 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+  <!-- 改回 user-scalable=no，這樣原生的工具列才不會被放大 -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <title>6月東主有喜優惠</title>
 
   <style>
@@ -12,16 +12,17 @@
       --pad: 14px;
       --ratio: 0.707; 
       --shadow: 0 10px 30px rgba(0,0,0,.08);
+      --zoom: 1; /* 動態縮放變數 */
     }
 
     *{ box-sizing:border-box; }
     
-    /* 解除 overflow: hidden，讓整個網頁採用原生滾動，這樣原生雙指放大縮小才能完美運作 */
     html, body{
+      height: 100%;
       width: 100%;
-      min-height: 100%;
       margin: 0;
       padding: 0;
+      overflow: hidden; 
       background: var(--bg);
       font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
     }
@@ -38,7 +39,13 @@
       color:#333;
     }
 
-    /* 工具列 */
+    #app{
+      height:100svh;
+      width:100vw;
+      position:relative;
+    }
+
+    /* ================= 工具列 (固定在最上方，不會被放大) ================= */
     #toolbar{
       position: fixed;
       top: calc(12px + env(safe-area-inset-top));
@@ -55,7 +62,7 @@
       pointer-events: auto;
       appearance:none;
       border:1px solid rgba(0,0,0,.15);
-      background: rgba(255,255,255,.92);
+      background: rgba(255,255,255,.95);
       color:#111;
       padding:8px 12px;
       border-radius:10px;
@@ -93,8 +100,19 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
+    #stage{
+      position:absolute;
+      inset:0;
+      z-index: 1;
+    }
+
     /* ================= 網格視圖 (首頁不變) ================= */
     #home-view {
+      position: absolute;
+      inset: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -115,6 +133,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       width: 100%;
       max-width: 900px;
+      flex-shrink: 0;
     }
 
     #grid-view {
@@ -149,15 +168,23 @@
       pointer-events: none;
     }
     
-    /* ================= 漫畫網風格：全新連續無縫上下滑動視圖 ================= */
+    /* ================= 漫畫網風格：自訂縮放容器 ================= */
     #scroll-view {
+      position: absolute;
+      inset: 0;
+      overflow: auto; /* 允許原生上下與左右捲動 */
+      -webkit-overflow-scrolling: touch;
       background: #fff; 
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      padding: 0; 
+      z-index: 10;
+      touch-action: pan-x pan-y; /* 確保瀏覽器原生捲動順暢 */
+    }
+
+    /* 這是負責被雙指拉大的內容層 */
+    #scroll-content {
+      width: calc(100% * var(--zoom)); /* 根據縮放變數動態改變寬度 */
       padding-top: calc(85px + env(safe-area-inset-top)); 
+      margin: 0;
+      transform-origin: 0 0;
     }
 
     .deck-tips {
@@ -173,16 +200,14 @@
       max-width: 750px;
     }
 
-    /* 漫畫網風格圖片樣式：完美無縫拼接，並支援原生放大 */
+    /* 漫畫圖片樣式：無縫拼接 */
     .scroll-img {
       width: 100%;
-      max-width: 750px; 
       height: auto;
       display: block;
       margin: 0; 
       padding: 0;
       border: none;
-      /* 錨點跳轉修正：點擊上方按鈕時，圖片頂部不會被固定工具列遮擋 */
       scroll-margin-top: 85px; 
     }
 
@@ -193,28 +218,33 @@
         padding-left: 10px;
         padding-right: 10px;
       }
-      #scroll-view {
+      #scroll-content {
         padding-top: calc(135px + env(safe-area-inset-top)); 
       }
       .home-title {
         font-size: 14px;
         margin-bottom: 14px;
         padding: 8px 12px;
-        width: 100%;
       }
       .deck-tips {
         font-size: 12px;
         margin-bottom: 12px;
         padding: 6px 12px;
-        width: 95%;
       }
       #grid-view {
         grid-template-columns: repeat(2, 1fr); 
         gap: 12px; 
       }
       .scroll-img {
-        max-width: 100%; 
         scroll-margin-top: 135px; 
+      }
+    }
+
+    /* 電腦端置中優化 */
+    @media (min-width: 601px) {
+      #scroll-content {
+        width: calc(750px * var(--zoom));
+        margin: 0 auto; 
       }
     }
 
@@ -225,7 +255,7 @@
 <body>
   <div id="loading">載入中...</div>
 
-  <!-- 工具列 -->
+  <!-- 工具列 (固定在此層，不受內部縮放影響) -->
   <div id="toolbar">
     <button id="btnHome" type="button">首頁</button>
     <button class="nav-btn" data-target="1" type="button">GWB13</button>
@@ -249,12 +279,14 @@
     <div id="grid-view"></div>
   </div>
   
-  <!-- 漫畫網風格：連續上下滑動視圖 (其他頁) -->
+  <!-- 漫畫網風格：連續上下滑動視圖 (附帶自訂雙指縮放) -->
   <div id="scroll-view" class="hidden">
-    <div class="deck-tips">
-      💡 提示：直接上下滑動即可。<br>您可以隨時使用「雙指」自由放大或縮小畫面。
+    <div id="scroll-content">
+      <div class="deck-tips">
+        💡 提示：直接上下滑動即可。<br>您可以隨時使用「雙指」自由拉大或縮小畫面。
+      </div>
+      <!-- 圖片由 JS 動態生成注入 -->
     </div>
-    <!-- 圖片由 JS 動態生成注入 -->
   </div>
 
   <script>
@@ -267,10 +299,11 @@
     const homeView = document.getElementById('home-view');
     const gridView = document.getElementById('grid-view');
     const scrollView = document.getElementById('scroll-view');
+    const scrollContent = document.getElementById('scroll-content');
     const pager = document.getElementById('pager');
     const loading = document.getElementById('loading');
 
-    let homeScrollY = 0; // 記憶首頁的滾動位置
+    let homeScrollY = 0; 
 
     // 1. 初始化網格視圖 (首頁)
     thumbPages.forEach(p => {
@@ -285,38 +318,43 @@
       gridView.appendChild(item);
     });
 
-    // 2. 初始化連續滑動視圖 (內頁：P1 到 P15 串連排列，完美去空隙)
+    // 2. 初始化連續滑動視圖 (內頁無縫拼接)
     for (let i = 1; i <= totalPages; i++) {
       const img = document.createElement('img');
       img.className = 'scroll-img';
       img.src = pages[i];
       img.dataset.page = i;
-      img.setAttribute('loading', 'lazy'); // 延遲載入優化效能
-      scrollView.appendChild(img);
+      img.setAttribute('loading', 'lazy'); 
+      scrollContent.appendChild(img);
+    }
+
+    // 重設縮放比例
+    function resetZoom() {
+      document.documentElement.style.setProperty('--zoom', 1);
+      currentZoom = 1;
     }
 
     // 3. 視圖切換與精準定位邏輯
     function showGrid() {
+      resetZoom();
       scrollView.classList.add('hidden');
       pager.classList.add('hidden');
       homeView.classList.remove('hidden');
       
       // 恢復首頁的滾動位置
-      window.scrollTo(0, homeScrollY);
+      homeView.scrollTop = homeScrollY;
     }
 
     function showDeck(pageIndex, smooth = false) {
-      // 如果從首頁進來，先記錄首頁的滾動高度
       if (!homeView.classList.contains('hidden')) {
-        homeScrollY = window.scrollY;
+        homeScrollY = homeView.scrollTop;
       }
 
       homeView.classList.add('hidden');
       scrollView.classList.remove('hidden');
       pager.classList.remove('hidden');
       
-      // 尋找目標圖片元素並滾動到該位置
-      const targetImg = scrollView.querySelector(`.scroll-img[data-page="${pageIndex}"]`);
+      const targetImg = scrollContent.querySelector(`.scroll-img[data-page="${pageIndex}"]`);
       if (targetImg) {
         setTimeout(() => {
           targetImg.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
@@ -324,15 +362,12 @@
       }
     }
 
-    // 4. 即時頁碼監聽器：監聽原生的 window 滾動
-    window.addEventListener('scroll', () => {
-      // 只有在瀏覽內頁時才更新頁碼
+    // 4. 即時頁碼監聽器
+    scrollView.addEventListener('scroll', () => {
       if (scrollView.classList.contains('hidden')) return;
 
-      const imgs = scrollView.querySelectorAll('.scroll-img');
+      const imgs = scrollContent.querySelectorAll('.scroll-img');
       let currentIdx = 1;
-      
-      // 以螢幕高度的 1/3 作為觸發判定線
       const triggerLine = window.innerHeight / 3; 
       
       imgs.forEach((img) => {
@@ -345,7 +380,7 @@
       pager.textContent = `${currentIdx} / ${totalPages}`;
     });
 
-    // 自動偵測第一張圖比例
+    // 自動偵測比例
     const firstImg = new Image();
     firstImg.onload = () => {
       const imgRatio = firstImg.naturalWidth / firstImg.naturalHeight;
@@ -362,7 +397,64 @@
     };
     firstImg.src = pages[1]; 
 
-    // 5. 按鈕綁定
+    // ==========================================
+    // 5. 專為「漫畫模式」打造的自訂雙指縮放 (不影響工具列)
+    // ==========================================
+    let currentZoom = 1;
+    let initialZoom = 1;
+    let startDist = 0;
+
+    scrollView.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        startDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialZoom = currentZoom;
+      }
+    }, { passive: false });
+
+    scrollView.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault(); // 阻止瀏覽器預設行為
+        
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        
+        const scale = dist / startDist;
+        const newZoom = Math.min(Math.max(initialZoom * scale, 1), 4); // 限制縮放 1倍 到 4倍
+
+        if (newZoom !== currentZoom) {
+          // 計算兩指中心點位置
+          const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+          // 計算中心點在內容物上的相對位置
+          const contentX = scrollView.scrollLeft + clientX;
+          const contentY = scrollView.scrollTop + clientY;
+
+          const zoomRatio = newZoom / currentZoom;
+          currentZoom = newZoom;
+
+          // 更新 CSS 變數，觸發畫面重繪變大
+          document.documentElement.style.setProperty('--zoom', currentZoom);
+
+          // 自動調整滾動軸，讓縮放中心保持在雙指中間
+          scrollView.scrollLeft = contentX * zoomRatio - clientX;
+          scrollView.scrollTop = contentY * zoomRatio - clientY;
+        }
+      }
+    }, { passive: false });
+
+    scrollView.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        startDist = 0;
+      }
+    });
+
+    // 6. 按鈕綁定
     document.getElementById('btnHome').onclick = showGrid;
 
     document.querySelectorAll('.nav-btn').forEach(btn => {
